@@ -426,6 +426,8 @@ func loadDaemonCliConfig(opts *daemonOptions) (*config.Config, error) {
 		if c != nil {
 			conf = c
 		}
+
+		conf.ConfigFile = opts.configFile
 	}
 
 	if err := config.Validate(conf); err != nil {

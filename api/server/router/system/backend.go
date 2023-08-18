@@ -19,6 +19,10 @@ type Backend interface {
 	SubscribeToEvents(since, until time.Time, ef filters.Args) ([]events.Message, chan interface{})
 	UnsubscribeFromEvents(chan interface{})
 	AuthenticateToRegistry(ctx context.Context, authConfig *types.AuthConfig) (string, string, error)
+	GetDownloadBandwidth() int64
+	SetDownloadBandwidth(bandwidth int64, persistent bool) error
+	GetUploadBandwidth() int64
+	SetUploadBandwidth(bandwidth int64, persistent bool) error
 }
 
 // ClusterBackend is all the methods that need to be implemented

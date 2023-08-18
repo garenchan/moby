@@ -22,6 +22,7 @@ import (
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/progress"
+	"github.com/docker/docker/pkg/ratelimit"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/registry"
 	digest "github.com/opencontainers/go-digest"
@@ -144,6 +145,11 @@ func (p *v2Pusher) pushV2Tag(ctx context.Context, ref reference.NamedTagged, id 
 
 	var descriptors []xfer.UploadDescriptor
 
+	var rl *ratelimit.Limiter
+	if p.config.UploadManager != nil {
+		rl = p.config.UploadManager.RateLimit(ctx)
+	}
+
 	descriptorTemplate := v2PushDescriptor{
 		v2MetadataService: p.v2MetadataService,
 		hmacKey:           hmacKey,
@@ -152,6 +158,7 @@ func (p *v2Pusher) pushV2Tag(ctx context.Context, ref reference.NamedTagged, id 
 		endpoint:          p.endpoint,
 		repo:              p.repo,
 		pushState:         &p.pushState,
+		rl:                rl,
 	}
 
 	// Loop bounds condition is to avoid pushing the base layer on Windows.
@@ -270,6 +277,7 @@ type v2PushDescriptor struct {
 	repo              distribution.Repository
 	pushState         *pushState
 	remoteDescriptor  distribution.Descriptor
+	rl                *ratelimit.Limiter
 	// a set of digests whose presence has been checked in a target repository
 	checkedDigests map[digest.Digest]struct{}
 }
@@ -480,6 +488,11 @@ func (pd *v2PushDescriptor) uploadUsingSession(
 
 	digester := digest.Canonical.Digester()
 	tee := io.TeeReader(reader, digester.Hash())
+
+	// rate limit for upload image
+	if pd.rl != nil {
+		tee = ratelimit.Reader(tee, pd.rl)
+	}
 
 	nn, err := layerUpload.ReadFrom(tee)
 	reader.Close()

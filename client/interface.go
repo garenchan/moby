@@ -170,6 +170,10 @@ type SystemAPIClient interface {
 	RegistryLogin(ctx context.Context, auth types.AuthConfig) (registry.AuthenticateOKBody, error)
 	DiskUsage(ctx context.Context) (types.DiskUsage, error)
 	Ping(ctx context.Context) (types.Ping, error)
+	GetDownloadBandwidth(ctx context.Context) (int64, error)
+	SetDownloadBandwidth(ctx context.Context, bandwidth int64, persistent bool) error
+	GetUploadBandwidth(ctx context.Context) (int64, error)
+	SetUploadBandwidth(ctx context.Context, bandwidth int64, persistent bool) error
 }
 
 // VolumeAPIClient defines API client methods for the volumes

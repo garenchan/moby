@@ -8,16 +8,19 @@ import (
 	"github.com/docker/distribution"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/progress"
+	"github.com/docker/docker/pkg/ratelimit"
 	"github.com/sirupsen/logrus"
 )
 
 const maxUploadAttempts = 5
+const maxUploadBandwidth = -1
 
 // LayerUploadManager provides task management and progress reporting for
 // uploads.
 type LayerUploadManager struct {
 	tm           TransferManager
 	waitDuration time.Duration
+	rl           *ratelimit.Limiter
 }
 
 // SetConcurrency sets the max concurrent uploads for each push
@@ -25,16 +28,45 @@ func (lum *LayerUploadManager) SetConcurrency(concurrency int) {
 	lum.tm.SetConcurrency(concurrency)
 }
 
+func (lum *LayerUploadManager) RateLimit(_ context.Context) *ratelimit.Limiter {
+	return lum.rl
+}
+
+func (lum *LayerUploadManager) GetRate() int64 {
+	var rate int64
+
+	if lum.rl != nil {
+		rate = int64(lum.rl.GetRate())
+	}
+
+	return rate
+}
+
+func (lum *LayerUploadManager) SetRate(rate int64) {
+	if lum.rl != nil {
+		lum.rl.SetRate(float64(rate))
+	}
+}
+
 // NewLayerUploadManager returns a new LayerUploadManager.
 func NewLayerUploadManager(concurrencyLimit int, options ...func(*LayerUploadManager)) *LayerUploadManager {
 	manager := LayerUploadManager{
 		tm:           NewTransferManager(concurrencyLimit),
 		waitDuration: time.Second,
+		rl:           ratelimit.NewLimiter(maxUploadBandwidth),
 	}
 	for _, option := range options {
 		option(&manager)
 	}
 	return &manager
+}
+
+// WithMaxUploadBandwidth configures the maximum number of upload
+// bandwidth for an upload manager.
+func WithMaxUploadBandwidth(max int64) func(*LayerUploadManager) {
+	return func(lum *LayerUploadManager) {
+		lum.rl = ratelimit.NewLimiter(float64(max))
+	}
 }
 
 type uploadTransfer struct {

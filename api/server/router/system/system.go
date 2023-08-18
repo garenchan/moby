@@ -33,6 +33,10 @@ func NewRouter(b Backend, c ClusterBackend, builder *buildkit.Builder, features 
 		router.NewGetRoute("/version", r.getVersion),
 		router.NewGetRoute("/system/df", r.getDiskUsage),
 		router.NewPostRoute("/auth", r.postAuth),
+		router.NewGetRoute("/bandwidth/download", r.getDownloadBandwidth),
+		router.NewPostRoute("/bandwidth/download", r.setDownloadBandwidth),
+		router.NewGetRoute("/bandwidth/upload", r.getUploadBandwidth),
+		router.NewPostRoute("/bandwidth/upload", r.setUploadBandwidth),
 	}
 
 	return r

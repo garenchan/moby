@@ -241,3 +241,45 @@ func eventTime(formTime string) (time.Time, error) {
 	}
 	return time.Unix(t, tNano), nil
 }
+
+func (s *systemRouter) getDownloadBandwidth(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	bandwidth := s.backend.GetDownloadBandwidth()
+	return httputils.WriteJSON(w, http.StatusOK, bandwidth)
+}
+
+func (s *systemRouter) setDownloadBandwidth(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	var bandwidth types.Bandwidth
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&bandwidth); err != nil {
+		return err
+	}
+
+	if err := s.backend.SetDownloadBandwidth(bandwidth.Value, bandwidth.Persistent); err != nil {
+		return err
+	}
+
+	w.WriteHeader(http.StatusOK)
+	return nil
+}
+
+func (s *systemRouter) getUploadBandwidth(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	bandwidth := s.backend.GetUploadBandwidth()
+	return httputils.WriteJSON(w, http.StatusOK, bandwidth)
+}
+
+func (s *systemRouter) setUploadBandwidth(ctx context.Context, w http.ResponseWriter, r *http.Request, vars map[string]string) error {
+	var bandwidth types.Bandwidth
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&bandwidth); err != nil {
+		return err
+	}
+
+	if err := s.backend.SetUploadBandwidth(bandwidth.Value, bandwidth.Persistent); err != nil {
+		return err
+	}
+
+	w.WriteHeader(http.StatusOK)
+	return nil
+}

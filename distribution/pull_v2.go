@@ -29,6 +29,7 @@ import (
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/progress"
+	"github.com/docker/docker/pkg/ratelimit"
 	"github.com/docker/docker/pkg/stringid"
 	"github.com/docker/docker/pkg/system"
 	refstore "github.com/docker/docker/reference"
@@ -150,6 +151,7 @@ type v2LayerDescriptor struct {
 	tmpFile           *os.File
 	verifier          digest.Verifier
 	src               distribution.Descriptor
+	rl                *ratelimit.Limiter
 }
 
 func (ld *v2LayerDescriptor) Key() string {
@@ -240,7 +242,14 @@ func (ld *v2LayerDescriptor) Download(ctx context.Context, progressOutput progre
 		}
 	}
 
-	reader := progress.NewProgressReader(ioutils.NewCancelReadCloser(ctx, layerDownload), progressOutput, size-offset, ld.ID(), "Downloading")
+	var reader io.ReadCloser
+	reader = progress.NewProgressReader(ioutils.NewCancelReadCloser(ctx, layerDownload), progressOutput, size-offset, ld.ID(), "Downloading")
+
+	// rate limit for download image
+	if ld.rl != nil {
+		reader = ratelimit.Reader(reader, ld.rl)
+	}
+
 	defer reader.Close()
 
 	if ld.verifier == nil {
@@ -553,6 +562,10 @@ func (p *v2Puller) pullSchema1(ctx context.Context, ref reference.Reference, unv
 			V2MetadataService: p.V2MetadataService,
 		}
 
+		if p.config.DownloadManager != nil {
+			layerDescriptor.rl = p.config.DownloadManager.RateLimit(ctx)
+		}
+
 		descriptors = append(descriptors, layerDescriptor)
 	}
 
@@ -632,6 +645,10 @@ func (p *v2Puller) pullSchema2Layers(ctx context.Context, target distribution.De
 			repoInfo:          p.repoInfo,
 			V2MetadataService: p.V2MetadataService,
 			src:               d,
+		}
+
+		if p.config.DownloadManager != nil {
+			layerDescriptor.rl = p.config.DownloadManager.RateLimit(ctx)
 		}
 
 		descriptors = append(descriptors, layerDescriptor)

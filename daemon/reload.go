@@ -45,6 +45,7 @@ func (daemon *Daemon) Reload(conf *config.Config) (err error) {
 	}
 	daemon.reloadDebug(conf, attributes)
 	daemon.reloadMaxConcurrentDownloadsAndUploads(conf, attributes)
+	daemon.reloadMaxBandwidth(conf, attributes)
 	if err := daemon.reloadMaxDownloadAttempts(conf, attributes); err != nil {
 		return err
 	}
@@ -133,6 +134,37 @@ func (daemon *Daemon) reloadMaxDownloadAttempts(conf *config.Config, attributes 
 	// prepare reload event attributes with updatable configurations
 	attributes["max-download-attempts"] = fmt.Sprintf("%d", *daemon.configStore.MaxDownloadAttempts)
 	return nil
+}
+
+// reloadMaxBandwidth updates configuration with max download
+// and upload bandwidth and updates the passed attributes
+func (daemon *Daemon) reloadMaxBandwidth(conf *config.Config, attributes map[string]string) {
+	// If no value is set for max-download-bandwidth we assume it is the default value
+	// We always "reset" as the cost is lightweight and easy to maintain.
+	maxDownloadBandwidth := int64(config.DefaultDownloadBandwidth)
+	if conf.IsValueSet("max-download-bandwidth") && conf.MaxDownloadBandwidth != nil {
+		maxDownloadBandwidth = *conf.MaxDownloadBandwidth
+	}
+	daemon.configStore.MaxDownloadBandwidth = &maxDownloadBandwidth
+	logrus.Debugf("Reset Max Download Bandwidth: %d", *daemon.configStore.MaxDownloadBandwidth)
+
+	// If no value is set for max-upload-bandwidth we assume it is the default value
+	// We always "reset" as the cost is lightweight and easy to maintain.
+	maxUploadBandwidth := int64(config.DefaultUploadBandwidth)
+	if conf.IsValueSet("max-upload-bandwidth") && conf.MaxUploadBandwidth != nil {
+		maxUploadBandwidth = *conf.MaxUploadBandwidth
+	}
+	daemon.configStore.MaxUploadBandwidth = &maxUploadBandwidth
+	logrus.Debugf("Reset Max Upload Bandwidth: %d", *daemon.configStore.MaxUploadBandwidth)
+
+	if daemon.imageService != nil {
+		daemon.imageService.UpdateDownloadBandwidth(&maxDownloadBandwidth)
+		daemon.imageService.UpdateUploadBandwidth(&maxUploadBandwidth)
+	}
+
+	// prepare reload event attributes with updatable configurations
+	attributes["max-download-bandwidth"] = fmt.Sprintf("%d", *daemon.configStore.MaxDownloadBandwidth)
+	attributes["max-upload-bandwidth"] = fmt.Sprintf("%d", *daemon.configStore.MaxUploadBandwidth)
 }
 
 // reloadShutdownTimeout updates configuration with daemon shutdown timeout option

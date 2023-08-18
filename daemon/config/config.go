@@ -36,6 +36,12 @@ const (
 	// maximum number of attempts that
 	// may take place at a time for each pull when the connection is lost.
 	DefaultDownloadAttempts = 5
+	// DefaultDownloadBandwidth is the default value for download bandwidth limit, unit: Bps (Bytes per second).
+	// A non-positive number means that there is no limit.
+	DefaultDownloadBandwidth = -1
+	// DefaultUploadBandwidth is the default value for upload bandwidth limit, unit: Bps (Bytes per second).
+	// A non-positive number means that there is no limit.
+	DefaultUploadBandwidth = -1
 	// DefaultShmSize is the default value for container's shm size
 	DefaultShmSize = int64(67108864)
 	// DefaultNetworkMtu is the default value for network MTU
@@ -140,6 +146,7 @@ type DNSConfig struct {
 // It includes json tags to deserialize configuration from a file
 // using the same names that the flags in the command line use.
 type CommonConfig struct {
+	ConfigFile            string                    `json:"-"`
 	AuthzMiddleware       *authorization.Middleware `json:"-"`
 	AuthorizationPlugins  []string                  `json:"authorization-plugins,omitempty"` // AuthorizationPlugins holds list of authorization plugins
 	AutoRestart           bool                      `json:"-"`
@@ -197,6 +204,14 @@ type CommonConfig struct {
 	// MaxDownloadAttempts is the maximum number of attempts that
 	// may take place at a time for each push.
 	MaxDownloadAttempts *int `json:"max-download-attempts,omitempty"`
+
+	// MaxDownloadBandwidth is the maximum number of download bandwidth
+	// limit for global, unit: Bps (Bytes per second).
+	MaxDownloadBandwidth *int64 `json:"max-download-bandwidth,omitempty"`
+
+	// MaxUploadBandwidth is the maximum number of upload bandwidth
+	// limit for global, unit: Bps (Bytes per second).
+	MaxUploadBandwidth *int64 `json:"max-upload-bandwidth,omitempty"`
 
 	// ShutdownTimeout is the timeout value (in seconds) the daemon will wait for the container
 	// to stop when daemon is being shutdown

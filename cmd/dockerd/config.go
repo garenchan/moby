@@ -21,6 +21,7 @@ const (
 // installCommonConfigFlags adds flags to the pflag.FlagSet to configure the daemon
 func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) error {
 	var maxConcurrentDownloads, maxConcurrentUploads, maxDownloadAttempts int
+	var maxDownloadBandwidth, maxUploadBandwidth int64
 	defaultPidFile, err := getDefaultPidFile()
 	if err != nil {
 		return err
@@ -80,6 +81,8 @@ func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) error {
 	flags.IntVar(&maxConcurrentDownloads, "max-concurrent-downloads", config.DefaultMaxConcurrentDownloads, "Set the max concurrent downloads for each pull")
 	flags.IntVar(&maxConcurrentUploads, "max-concurrent-uploads", config.DefaultMaxConcurrentUploads, "Set the max concurrent uploads for each push")
 	flags.IntVar(&maxDownloadAttempts, "max-download-attempts", config.DefaultDownloadAttempts, "Set the max download attempts for each pull")
+	flags.Int64Var(&maxDownloadBandwidth, "max-download-bandwidth", config.DefaultDownloadBandwidth, "Set the max download bandwidth for global")
+	flags.Int64Var(&maxUploadBandwidth, "max-upload-bandwidth", config.DefaultUploadBandwidth, "Set the max upload bandwidth for global")
 	flags.IntVar(&conf.ShutdownTimeout, "shutdown-timeout", defaultShutdownTimeout, "Set the default shutdown timeout")
 	flags.IntVar(&conf.NetworkDiagnosticPort, "network-diagnostic-port", 0, "TCP port number of the network diagnostic server")
 	_ = flags.MarkHidden("network-diagnostic-port")
@@ -95,6 +98,8 @@ func installCommonConfigFlags(conf *config.Config, flags *pflag.FlagSet) error {
 	conf.MaxConcurrentDownloads = &maxConcurrentDownloads
 	conf.MaxConcurrentUploads = &maxConcurrentUploads
 	conf.MaxDownloadAttempts = &maxDownloadAttempts
+	conf.MaxDownloadBandwidth = &maxDownloadBandwidth
+	conf.MaxUploadBandwidth = &maxUploadBandwidth
 
 	flags.StringVar(&conf.ContainerdNamespace, "containerd-namespace", daemon.ContainersNamespace, "Containerd namespace to use")
 	flags.StringVar(&conf.ContainerdPluginNamespace, "containerd-plugins-namespace", containerd.PluginNamespace, "Containerd namespace to use for plugins")

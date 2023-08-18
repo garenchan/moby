@@ -15,6 +15,7 @@ import (
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/pkg/progress"
+	"github.com/docker/docker/pkg/ratelimit"
 	"github.com/docker/docker/pkg/system"
 	refstore "github.com/docker/docker/reference"
 	"github.com/docker/docker/registry"
@@ -114,6 +115,8 @@ type RootFSDownloadManager interface {
 	// Given progress output to track download progress
 	// Returns function to release download resources
 	Download(ctx context.Context, initialRootFS image.RootFS, os string, layers []xfer.DownloadDescriptor, progressOutput progress.Output) (image.RootFS, func(), error)
+	// RateLimit get download rate limit, nil means no limit.
+	RateLimit(ctx context.Context) *ratelimit.Limiter
 }
 
 type imageConfigStore struct {

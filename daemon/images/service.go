@@ -41,6 +41,8 @@ type ImageServiceConfig struct {
 	MaxConcurrentDownloads    int
 	MaxConcurrentUploads      int
 	MaxDownloadAttempts       int
+	MaxDownloadBandwidth      int64
+	MaxUploadBandwidth        int64
 	ReferenceStore            dockerreference.Store
 	RegistryService           registry.Service
 	TrustKey                  libtrust.PrivateKey
@@ -54,17 +56,19 @@ func NewImageService(config ImageServiceConfig) *ImageService {
 	logrus.Debugf("Max Concurrent Downloads: %d", config.MaxConcurrentDownloads)
 	logrus.Debugf("Max Concurrent Uploads: %d", config.MaxConcurrentUploads)
 	logrus.Debugf("Max Download Attempts: %d", config.MaxDownloadAttempts)
+	logrus.Debugf("Max Download Bandwidth: %d", config.MaxDownloadBandwidth)
+	logrus.Debugf("Max Upload Bandwidth: %d", config.MaxUploadBandwidth)
 	return &ImageService{
 		containers:                config.ContainerStore,
 		distributionMetadataStore: config.DistributionMetadataStore,
-		downloadManager:           xfer.NewLayerDownloadManager(config.LayerStores, config.MaxConcurrentDownloads, xfer.WithMaxDownloadAttempts(config.MaxDownloadAttempts)),
+		downloadManager:           xfer.NewLayerDownloadManager(config.LayerStores, config.MaxConcurrentDownloads, xfer.WithMaxDownloadAttempts(config.MaxDownloadAttempts), xfer.WithMaxDownloadBandwidth(config.MaxDownloadBandwidth)),
 		eventsService:             config.EventsService,
 		imageStore:                &imageStoreWithLease{Store: config.ImageStore, leases: config.Leases, ns: config.ContentNamespace},
 		layerStores:               config.LayerStores,
 		referenceStore:            config.ReferenceStore,
 		registryService:           config.RegistryService,
 		trustKey:                  config.TrustKey,
-		uploadManager:             xfer.NewLayerUploadManager(config.MaxConcurrentUploads),
+		uploadManager:             xfer.NewLayerUploadManager(config.MaxConcurrentUploads, xfer.WithMaxUploadBandwidth(config.MaxUploadBandwidth)),
 		leases:                    config.Leases,
 		content:                   config.ContentStore,
 		contentNamespace:          config.ContentNamespace,
@@ -107,6 +111,26 @@ func (i *ImageService) DistributionServices() DistributionServices {
 		ImageStore:        i.imageStore,
 		ReferenceStore:    i.referenceStore,
 	}
+}
+
+func (i *ImageService) GetDownloadBandwidth() int64 {
+	var bandwidth int64
+
+	if i.downloadManager != nil {
+		bandwidth = i.downloadManager.GetRate()
+	}
+
+	return bandwidth
+}
+
+func (i *ImageService) GetUploadBandwidth() int64 {
+	var bandwidth int64
+
+	if i.uploadManager != nil {
+		bandwidth = i.uploadManager.GetRate()
+	}
+
+	return bandwidth
 }
 
 // CountImages returns the number of images stored by ImageService
@@ -258,5 +282,19 @@ func (i *ImageService) UpdateConfig(maxDownloads, maxUploads *int) {
 	}
 	if i.uploadManager != nil && maxUploads != nil {
 		i.uploadManager.SetConcurrency(*maxUploads)
+	}
+}
+
+// UpdateDownloadBandwidth called from reload.go
+func (i *ImageService) UpdateDownloadBandwidth(maxDownloadBandwidth *int64) {
+	if i.downloadManager != nil && maxDownloadBandwidth != nil {
+		i.downloadManager.SetRate(*maxDownloadBandwidth)
+	}
+}
+
+// UpdateUploadBandwidth called from reload.go
+func (i *ImageService) UpdateUploadBandwidth(maxUploadBandwidth *int64) {
+	if i.uploadManager != nil && maxUploadBandwidth != nil {
+		i.uploadManager.SetRate(*maxUploadBandwidth)
 	}
 }

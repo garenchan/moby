@@ -14,11 +14,13 @@ import (
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/progress"
+	"github.com/docker/docker/pkg/ratelimit"
 	"github.com/docker/docker/pkg/system"
 	"github.com/sirupsen/logrus"
 )
 
 const maxDownloadAttempts = 5
+const maxDownloadBandwidth = -1
 
 // LayerDownloadManager figures out which layers need to be downloaded, then
 // registers and downloads those, taking into account dependencies between
@@ -28,11 +30,32 @@ type LayerDownloadManager struct {
 	tm                  TransferManager
 	waitDuration        time.Duration
 	maxDownloadAttempts int
+	rl                  *ratelimit.Limiter
 }
 
 // SetConcurrency sets the max concurrent downloads for each pull
 func (ldm *LayerDownloadManager) SetConcurrency(concurrency int) {
 	ldm.tm.SetConcurrency(concurrency)
+}
+
+func (ldm *LayerDownloadManager) RateLimit(_ context.Context) *ratelimit.Limiter {
+	return ldm.rl
+}
+
+func (ldm *LayerDownloadManager) GetRate() int64 {
+	var rate int64
+
+	if ldm.rl != nil {
+		rate = int64(ldm.rl.GetRate())
+	}
+
+	return rate
+}
+
+func (ldm *LayerDownloadManager) SetRate(rate int64) {
+	if ldm.rl != nil {
+		ldm.rl.SetRate(float64(rate))
+	}
 }
 
 // NewLayerDownloadManager returns a new LayerDownloadManager.
@@ -42,6 +65,7 @@ func NewLayerDownloadManager(layerStores map[string]layer.Store, concurrencyLimi
 		tm:                  NewTransferManager(concurrencyLimit),
 		waitDuration:        time.Second,
 		maxDownloadAttempts: maxDownloadAttempts,
+		rl:                  ratelimit.NewLimiter(maxDownloadBandwidth),
 	}
 	for _, option := range options {
 		option(&manager)
@@ -54,6 +78,14 @@ func NewLayerDownloadManager(layerStores map[string]layer.Store, concurrencyLimi
 func WithMaxDownloadAttempts(max int) func(*LayerDownloadManager) {
 	return func(dlm *LayerDownloadManager) {
 		dlm.maxDownloadAttempts = max
+	}
+}
+
+// WithMaxDownloadBandwidth configures the maximum number of download
+// bandwidth for a download manager.
+func WithMaxDownloadBandwidth(max int64) func(*LayerDownloadManager) {
+	return func(dlm *LayerDownloadManager) {
+		dlm.rl = ratelimit.NewLimiter(float64(max))
 	}
 }
 

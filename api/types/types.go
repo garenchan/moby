@@ -215,6 +215,12 @@ type Info struct {
 	Warnings            []string
 }
 
+// Bandwidth used for update bandwidth
+type Bandwidth struct {
+	Value      int64 `json:"value,omitempty"`
+	Persistent bool  `json:"persistent,omitempty"`
+}
+
 // KeyValue holds a key/value pair
 type KeyValue struct {
 	Key, Value string
